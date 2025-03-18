@@ -2,7 +2,6 @@
 /dist
 /node_modules
 /build
-/redis-data
 
 # Logs
 logs
@@ -42,6 +41,9 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+
+# credentials config
+credentials.json
 
 # temp directory
 .temp

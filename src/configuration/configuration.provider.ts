@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { AppConfiguration, RedisConnConfig } from './configuration.models';
+import {
+  AppConfiguration,
+  PgConnection,
+  RedisConnConfig,
+} from './configuration.models';
 import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
 
@@ -12,10 +16,19 @@ export class ConfigProvider {
         host: this.service.getOrThrow<string>('REDIS_HOST'),
         port: this.service.getOrThrow<number>('REDIS_PORT'),
       },
+      pgConnection: {
+        host: this.service.getOrThrow<string>('POSTGRES_HOST'),
+        user: this.service.getOrThrow<string>('POSTGRES_USER'),
+        password: this.service.getOrThrow<string>('POSTGRES_PASSWORD'),
+        database: this.service.getOrThrow<string>('POSTGRES_DATABASE'),
+        port: this.service.getOrThrow<number>('POSTGRES_PORT'),
+      },
       google: {
         credentialsFile: this.service.getOrThrow<string>('GOOGLE_CRED_FILE'),
       },
+      chunkSize: this.service.getOrThrow<number>('CHUNK_SIZE'),
     };
+    console.log(this.config);
   }
 
   redisConnection(): RedisConnConfig {
@@ -24,5 +37,13 @@ export class ConfigProvider {
 
   googleCredFile(): string {
     return this.config.google.credentialsFile;
+  }
+
+  chunkSize(): number {
+    return this.config.chunkSize;
+  }
+
+  pgConnection(): PgConnection {
+    return this.config.pgConnection;
   }
 }
