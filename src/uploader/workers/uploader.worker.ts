@@ -72,7 +72,7 @@ export class UploadWorker implements OnModuleInit, OnModuleDestroy {
 
   private async scheduleJob<T>(queue: Queue, type: JobType, payload: T) {
     await queue.add(type, payload, {
-      attempts: 4,
+      attempts: 1,
       backoff: {
         type: 'fixed',
         delay: 3000,

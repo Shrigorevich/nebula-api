@@ -28,7 +28,7 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
   private async handleJob(job: Job<ResumableUploadJob>): Promise<void> {
     const { taskId, url, index, file } = job.data;
     console.log(
-      `ResumableUpload initiated. Task: ${taskId}. Index: ${index}. Attempt: ${job.attemptsMade}`,
+      `Resumable Upload job initiated. Task: ${taskId}. Index: ${index}. Attempt: ${job.attemptsMade}`,
     );
     try {
       this.cache.saveTaskUnit(taskId, index, TaskStatus.InProgress);
@@ -37,32 +37,36 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
         index,
         file.name,
         file.mime,
+        file.size,
       );
 
-      const status = await this.driveService.getUploadingStatus(uploadUrl);
-      if (status.completed) {
-        const downloadLink = await this.driveService.getDownloadLink(
-          status.fileId!,
+      const lastBytePos = await this.cache.getLastBytePosition(taskId, index);
+      console.log('Last position: ' + lastBytePos);
+      if (lastBytePos) {
+        console.log(`Uploading is resumed. Task: ${taskId}. Index: ${index}.`);
+        const { downloadLink, fileId } = await this.streamFile(
+          job.data,
+          url,
+          uploadUrl,
+          file.size,
+          lastBytePos + 1,
         );
-        await this.finalize(taskId, index, file, downloadLink, status.fileId!);
-        console.log(
-          `Uploading is already completed. Go to finalize. Index: ${index}. Task: ${taskId}.`,
-        );
+        await this.finalize(taskId, index, file, downloadLink, fileId);
+        console.log(`Uploading completed. Task: ${taskId}. Index: ${index}.`);
         return;
       }
 
-      // Resume failed uploading
-      const offset = status.uploadedSize ? status.uploadedSize + 1 : 0;
+      console.log(`Uploading started. TaskId: ${taskId}. IndexId: ${index}`);
       const { downloadLink, fileId } = await this.streamFile(
+        job.data,
         url,
         uploadUrl,
         file.size,
-        offset,
+        0,
       );
       await this.finalize(taskId, index, file, downloadLink, fileId);
-      console.log(
-        `Uploading is resumed and completed. Index: ${index}. Attempt: ${job.attemptsMade}`,
-      );
+      console.log(`Uploading finished. TaskId: ${taskId}. IndexId: ${index}`);
+      // Resume failed uploading
     } catch (error) {
       console.error(
         `Error during ResumableUpload processing. Attempt: ${job.attemptsMade}. Limit: ${job.opts.attempts}.`,
@@ -76,6 +80,7 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private async streamFile(
+    state: ResumableUploadJob,
     sourceUrl: string,
     uploadUrl: string,
     fileSize: number,
@@ -84,7 +89,8 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
     downloadLink: string;
     fileId: string;
   }> {
-    const CHUNK_SIZE = this.configProvider.chunkSize() * 1024 * 1024; // 4 mb
+    const CHUNK_SIZE = this.configProvider.chunkSize() * 1024 * 1024;
+
     let startPos = initOffset;
 
     let uploadingStatus: UploadingStatus = {
@@ -111,11 +117,16 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
         fileSize,
       );
 
+      await this.cache.saveLastBytePosition(state.taskId, state.index, endPos);
+
       startPos = endPos + 1;
     }
     if (uploadingStatus.completed) {
+      const link = await this.driveService.getDownloadLink(
+        uploadingStatus.fileId!,
+      );
       return {
-        downloadLink: uploadingStatus.downloadLink!,
+        downloadLink: link,
         fileId: uploadingStatus.fileId!,
       };
     }
@@ -139,6 +150,7 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
     index: number,
     fileName: string,
     fileMime: string,
+    size: number,
   ): Promise<string> {
     let uploadUrl: string | null = await this.cache.getUploadUrl(taskId, index);
     if (uploadUrl) {
@@ -153,8 +165,10 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
       uploadUrl = await this.driveService.getResumableUploadUrl(
         fileName,
         fileMime,
+        size,
       );
     }
+    await this.cache.saveUploadUrl(taskId, index, uploadUrl);
     return uploadUrl!;
   }
 

@@ -7,6 +7,5 @@ export interface DriveFileMeta {
 export interface UploadingStatus {
   completed: boolean;
   uploadedSize?: number;
-  downloadLink?: string;
   fileId?: string;
 }

@@ -13,8 +13,25 @@ export class CacheService {
     );
   }
 
+  async saveLastBytePosition(taskId: string, index: number, position: number) {
+    await this.redis.set(
+      `last-position:taskId:${taskId}:index:${index}`,
+      position,
+    );
+  }
+
+  async getLastBytePosition(
+    taskId: string,
+    index: number,
+  ): Promise<number | null> {
+    const pos = await this.redis.get(
+      `last-position:taskId:${taskId}:index:${index}`,
+    );
+    return pos ? Number(pos) : null;
+  }
+
   async saveUploadUrl(taskId: string, index: number, url: string) {
-    await this.redis.set(`url:task:${taskId}:index:${index}`, url);
+    await this.redis.set(`url:taskId:${taskId}:index:${index}`, url);
   }
 
   async getUploadUrl(taskId: string, index: number): Promise<string | null> {

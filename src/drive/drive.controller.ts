@@ -16,12 +16,4 @@ export class DriveController {
   async deleteAll(): Promise<void> {
     return await this.driveService.clearDrive();
   }
-
-  @Get('download-link')
-  async getLink(): Promise<string> {
-    return await this.driveService.getResumableUploadUrl(
-      'super-file.mp4',
-      'video/mp4',
-    );
-  }
 }

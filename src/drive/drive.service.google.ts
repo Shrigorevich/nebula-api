@@ -53,17 +53,20 @@ export class DriveServiceGoogle implements OnModuleInit {
     return this.getFileMeta(response.data);
   }
 
-  async getUploadingStatus(uploadUrl: string): Promise<UploadingStatus> {
+  async getUploadingStatus(
+    uploadUrl: string,
+    size: number,
+  ): Promise<UploadingStatus> {
     const response = await axios.put(uploadUrl, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
-        'Content-Range': `*/*`,
+        'Content-Range': `*/${size}*`,
       },
       validateStatus: (status: number) => {
         return status >= 200 && status < 405;
       },
     });
-    console.log(response);
+    console.log('status: ' + response.status);
     return this.populateStatus(response);
   }
 
@@ -74,7 +77,7 @@ export class DriveServiceGoogle implements OnModuleInit {
     endByte: number,
     fileSize: number,
   ): Promise<UploadingStatus> {
-    const response = await axios.put(uploadUrl, chunk, {
+    const response = await axios.put(`${uploadUrl}`, chunk, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
         'Content-Length': (endByte - startByte + 1).toString(),
@@ -92,6 +95,7 @@ export class DriveServiceGoogle implements OnModuleInit {
   async getResumableUploadUrl(
     fileName: string,
     mimeType: string,
+    size: number,
   ): Promise<string> {
     const resp = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
@@ -119,8 +123,6 @@ export class DriveServiceGoogle implements OnModuleInit {
     };
     if (response.status === 200 || response.status === 201) {
       result.completed = true;
-      console.log(response.data);
-      result.downloadLink = response.data.webContentLink;
       result.fileId = response.data.id;
       return result;
     }
