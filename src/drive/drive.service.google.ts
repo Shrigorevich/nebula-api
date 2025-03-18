@@ -8,6 +8,7 @@ import { DriveFileMeta, UploadingStatus } from './drive.models';
 import { GoogleAuth } from 'google-auth-library';
 import { JSONClient } from 'google-auth-library/build/src/auth/googleauth';
 import axios, { AxiosResponse } from 'axios';
+import { FileMeta } from 'src/uploader/uploader.models';
 
 @Injectable()
 export class DriveServiceGoogle implements OnModuleInit {
@@ -47,20 +48,15 @@ export class DriveServiceGoogle implements OnModuleInit {
       },
       fields: 'id, name, webContentLink, size, createdTime',
     });
-    console.log(response.data);
-    this.makeFilePublic(response.data.id as string);
-
+    this.makeFilePublic(response.data.id!);
     return this.getFileMeta(response.data);
   }
 
-  async getUploadingStatus(
-    uploadUrl: string,
-    size: number,
-  ): Promise<UploadingStatus> {
+  async getUploadingStatus(uploadUrl: string): Promise<UploadingStatus> {
     const response = await axios.put(uploadUrl, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
-        'Content-Range': `*/${size}*`,
+        'Content-Range': `*/*`,
       },
       validateStatus: (status: number) => {
         return status >= 200 && status < 405;
@@ -132,11 +128,11 @@ export class DriveServiceGoogle implements OnModuleInit {
     return result;
   }
 
-  private getFileMeta(data: drive_v3.Schema$File) {
+  private getFileMeta(data: drive_v3.Schema$File): DriveFileMeta {
     return {
       name: data.name as string,
       downloadLink: data.webContentLink as string,
-      size: data.size as string,
+      size: Number(data.size),
     };
   }
 

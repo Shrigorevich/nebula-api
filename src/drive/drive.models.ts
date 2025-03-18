@@ -1,7 +1,7 @@
 export interface DriveFileMeta {
   name: string;
   downloadLink: string;
-  size: string;
+  size: number;
 }
 
 export interface UploadingStatus {

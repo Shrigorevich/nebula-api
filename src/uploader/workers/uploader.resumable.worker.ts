@@ -42,14 +42,31 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
 
       const lastBytePos = await this.cache.getLastBytePosition(taskId, index);
       console.log('Last position: ' + lastBytePos);
-      if (lastBytePos) {
+      if (lastBytePos && lastBytePos > 0) {
         console.log(`Uploading is resumed. Task: ${taskId}. Index: ${index}.`);
+        const status = await this.driveService.getUploadingStatus(uploadUrl);
+        if (status.completed) {
+          console.log(
+            `Uploading was already done. Go to finalize. Task: ${taskId}. Index: ${index}.`,
+          );
+          const downloadLink = await this.driveService.getDownloadLink(
+            status.fileId!,
+          );
+          await this.finalize(
+            taskId,
+            index,
+            file,
+            downloadLink,
+            status.fileId!,
+          );
+          return;
+        }
         const { downloadLink, fileId } = await this.streamFile(
           job.data,
           url,
           uploadUrl,
           file.size,
-          lastBytePos + 1,
+          status.uploadedSize!,
         );
         await this.finalize(taskId, index, file, downloadLink, fileId);
         console.log(`Uploading completed. Task: ${taskId}. Index: ${index}.`);
@@ -90,12 +107,11 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
     fileId: string;
   }> {
     const CHUNK_SIZE = this.configProvider.chunkSize() * 1024 * 1024;
-
     let startPos = initOffset;
-
     let uploadingStatus: UploadingStatus = {
       completed: false,
     };
+
     while (startPos < fileSize) {
       const endPos = Math.min(startPos + CHUNK_SIZE - 1, fileSize - 1);
 
@@ -118,7 +134,6 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
       );
 
       await this.cache.saveLastBytePosition(state.taskId, state.index, endPos);
-
       startPos = endPos + 1;
     }
     if (uploadingStatus.completed) {
