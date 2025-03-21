@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { JobQueue, TaskStatus, UploadJob } from './uploader.models';
 import { UploaderContext } from './uploader.context';
 import { CacheService } from 'src/cache/cache.service';
+import { TaskStatusDto } from './uploader.dto';
 
 @Injectable()
 export class UploadService {
@@ -20,8 +21,8 @@ export class UploadService {
     });
   }
 
-  async getTaskStatus(id: string): Promise<any> {
-    var subStatuses = await this.cache.getTaskUnits(id);
+  async getTaskStatus(id: string): Promise<TaskStatusDto> {
+    const subStatuses = await this.cache.getTaskUnits(id);
     const statusCount = subStatuses.reduce((acc, status) => {
       acc[status] = (acc[status] || 0) + 1;
       return acc;
@@ -40,14 +41,12 @@ export class UploadService {
   async upload(urls: string[]): Promise<string> {
     const taskId = uuidv4();
 
-    urls.forEach(async (url, i) => {
-      await this.addUploadTask({
-        taskId: taskId,
-        index: i,
-        url: url,
-      });
-      this.cache.saveTaskUnit(taskId, i, TaskStatus.Pending);
-    });
+    await Promise.all(
+      urls.map(async (url, i) => {
+        await this.cache.saveTaskUnit(taskId, i, TaskStatus.Pending);
+        return await this.addUploadTask({ taskId, index: i, url });
+      }),
+    );
 
     return taskId;
   }

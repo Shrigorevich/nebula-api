@@ -8,6 +8,10 @@ export class CreateTaskDto {
   urls: string[];
 }
 
+export class TaskStatusDto {
+  [key: string]: number;
+}
+
 export class CloudFileDto {
   @ApiProperty({
     description: 'File ID',

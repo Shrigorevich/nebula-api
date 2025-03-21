@@ -14,7 +14,7 @@ export class UploadController {
   }
 
   @Get(':id/status')
-  async getTask(@Param('id') id: string): Promise<string> {
+  async getTask(@Param('id') id: string): Promise<any> {
     return await this.uploadService.getTaskStatus(id);
   }
 

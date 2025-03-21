@@ -37,7 +37,6 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
         index,
         file.name,
         file.mime,
-        file.size,
       );
 
       const lastBytePos = await this.cache.getLastBytePosition(taskId, index);
@@ -165,7 +164,6 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
     index: number,
     fileName: string,
     fileMime: string,
-    size: number,
   ): Promise<string> {
     let uploadUrl: string | null = await this.cache.getUploadUrl(taskId, index);
     if (uploadUrl) {
@@ -177,10 +175,9 @@ export class ResumableUploadWorker implements OnModuleInit, OnModuleDestroy {
       console.log(
         `No upload url in cache. Requesting new one. TaskId: ${taskId}. Index: ${index}`,
       );
-      uploadUrl = await this.driveService.getResumableUploadUrl(
+      uploadUrl = await this.driveService.createResumableUploadUrl(
         fileName,
         fileMime,
-        size,
       );
     }
     await this.cache.saveUploadUrl(taskId, index, uploadUrl);

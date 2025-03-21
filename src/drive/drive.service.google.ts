@@ -1,6 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { drive_v3, google } from 'googleapis';
-import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigProvider } from 'src/configuration/configuration.provider';
 import { Readable } from 'stream';
@@ -8,7 +7,7 @@ import { DriveFileMeta, UploadingStatus } from './drive.models';
 import { GoogleAuth } from 'google-auth-library';
 import { JSONClient } from 'google-auth-library/build/src/auth/googleauth';
 import axios, { AxiosResponse } from 'axios';
-import { FileMeta } from 'src/uploader/uploader.models';
+import { DriveFileDto } from './drive.dto';
 
 @Injectable()
 export class DriveServiceGoogle implements OnModuleInit {
@@ -19,20 +18,29 @@ export class DriveServiceGoogle implements OnModuleInit {
     this.driveClient = this.createDriveClient();
   }
 
-  async getFiles(): Promise<any> {
+  /**
+   * Gets the list of files stored on Google Drive
+   * @returns
+   */
+  async getFiles(): Promise<DriveFileDto[]> {
     const response = await this.driveClient.files.list({});
-    console.log(response.data);
-    return response.data;
+    return response.data.files
+      ? response.data.files.map((f) => ({
+          kind: f.kind,
+          id: f.id,
+          name: f.name,
+          mimeType: f.mimeType,
+        }))
+      : [];
   }
 
-  async getDownloadLink(id: string): Promise<string> {
-    const response = await this.driveClient.files.get({
-      fields: 'webContentLink',
-      fileId: id,
-    });
-    return response.data.webContentLink!;
-  }
-
+  /**
+   * Uploads specified file stream to Drive
+   * @param stream
+   * @param fileName
+   * @param mimeType
+   * @returns Uploaded file's meta data
+   */
   async streamToDrive(
     stream: Readable,
     fileName: string,
@@ -52,6 +60,24 @@ export class DriveServiceGoogle implements OnModuleInit {
     return this.getFileMeta(response.data);
   }
 
+  /**
+   * Gets file download link by specified file ID
+   * @param id File identifier
+   * @returns
+   */
+  async getDownloadLink(id: string): Promise<string> {
+    const response = await this.driveClient.files.get({
+      fields: 'webContentLink',
+      fileId: id,
+    });
+    return response.data.webContentLink!;
+  }
+
+  /**
+   * Gets the file's uploading status
+   * @param uploadUrl Resumable uploading url
+   * @returns Uploading status
+   */
   async getUploadingStatus(uploadUrl: string): Promise<UploadingStatus> {
     const response = await axios.put(uploadUrl, {
       headers: {
@@ -66,6 +92,15 @@ export class DriveServiceGoogle implements OnModuleInit {
     return this.populateStatus(response);
   }
 
+  /**
+   * Uploads specified file chunk to Drive
+   * @param uploadUrl
+   * @param chunk
+   * @param startByte
+   * @param endByte
+   * @param fileSize
+   * @returns
+   */
   async uploadChunk(
     uploadUrl: string,
     chunk: Readable,
@@ -88,10 +123,15 @@ export class DriveServiceGoogle implements OnModuleInit {
     return this.populateStatus(response);
   }
 
-  async getResumableUploadUrl(
+  /**
+   * Creates resumable upload url
+   * @param fileName
+   * @param mimeType
+   * @returns url
+   */
+  async createResumableUploadUrl(
     fileName: string,
     mimeType: string,
-    size: number,
   ): Promise<string> {
     const resp = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
@@ -111,6 +151,32 @@ export class DriveServiceGoogle implements OnModuleInit {
       throw new Error('Can not get upload url');
 
     return resp.headers.get('location')!;
+  }
+
+  /**
+   * Makes specified file public
+   * @param fileId File identifier
+   */
+  async makeFilePublic(fileId: string) {
+    await this.driveClient.permissions.create({
+      fileId: fileId,
+      requestBody: {
+        type: 'anyone',
+        role: 'reader',
+      },
+    });
+  }
+
+  /**
+   * Deletes all files on the Drive
+   */
+  async clearDrive(): Promise<void> {
+    const list = await this.driveClient.files.list();
+    list.data.files?.forEach(async (file) => {
+      await this.driveClient.files.delete({
+        fileId: file.id!,
+      });
+    });
   }
 
   private populateStatus(response: AxiosResponse) {
@@ -136,30 +202,11 @@ export class DriveServiceGoogle implements OnModuleInit {
     };
   }
 
-  async makeFilePublic(fileId: string) {
-    await this.driveClient.permissions.create({
-      fileId: fileId,
-      requestBody: {
-        type: 'anyone',
-        role: 'reader',
-      },
-    });
-  }
-
-  async clearDrive(): Promise<void> {
-    const list = await this.driveClient.files.list();
-    list.data.files?.forEach(async (file) => {
-      await this.driveClient.files.delete({
-        fileId: file.id!,
-      });
-    });
-  }
-
   private createDriveClient(): drive_v3.Drive {
     return google.drive({ version: 'v3', auth: this.getGoogleAuth() });
   }
 
-  getGoogleAuth(): GoogleAuth<JSONClient> {
+  private getGoogleAuth(): GoogleAuth<JSONClient> {
     const credPath = path.join(
       process.cwd(),
       this.configProvider.googleCredFile(),
@@ -172,7 +219,7 @@ export class DriveServiceGoogle implements OnModuleInit {
     return auth;
   }
 
-  async getAuthToken(): Promise<string> {
+  private async getAuthToken(): Promise<string> {
     const auth = this.getGoogleAuth();
     const client = await auth.getClient();
     return (await client.getAccessToken()).token!;
