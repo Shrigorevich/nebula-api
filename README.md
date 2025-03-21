@@ -1,9 +1,9 @@
 ## API Usage
 
-1. `POST api/v1/uploads` - initiates Google Drive uploading task for specified urls. Returns
-   the ID by which you can check the status of the upload task
-2. `GET api/v1/uploads/:id/status` - returns the status of the upload task by specified ID
-3. `GET api/v1/uploads/files` - return the list of uploaded files to the Google Drive
+1. `POST api/v1/uploads` - Initiates Google Drive uploading task for specified urls. Returns
+   the ID by which you can check the status of the initiated task
+2. `GET api/v1/uploads/:id/status` - Returns the status of the uploading task by specified ID
+3. `GET api/v1/uploads/files` - Returns the list of uploaded files to the Google Drive
 
 ### Uploading approach
 
