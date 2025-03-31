@@ -11,7 +11,7 @@ import { CacheModule } from './cache/cache.module';
     CacheModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: `.env.${process.env.NODE_ENV}`,
+      envFilePath: '.env',
     }),
   ],
 })

@@ -1,15 +1,15 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   AppConfiguration,
   PgConnection,
   RedisConnConfig,
 } from './configuration.models';
 import { ConfigService } from '@nestjs/config';
-import { google } from 'googleapis';
 
 @Injectable()
 export class ConfigProvider {
   readonly config: AppConfiguration;
+
   constructor(private readonly service: ConfigService) {
     this.config = {
       redisConnection: {

@@ -172,8 +172,10 @@ export class DriveServiceGoogle implements OnModuleInit {
    */
   async clearDrive(): Promise<void> {
     const list = await this.driveClient.files.list();
-    list.data.files?.forEach(async (file) => {
-      await this.driveClient.files.delete({
+
+    //TODO: use Promise.all instead
+    list.data.files?.forEach((file) => {
+      this.driveClient.files.delete({
         fileId: file.id!,
       });
     });
@@ -211,6 +213,7 @@ export class DriveServiceGoogle implements OnModuleInit {
       process.cwd(),
       this.configProvider.googleCredFile(),
     );
+    console.log('Cred file path: ' + credPath);
     const auth = new google.auth.GoogleAuth({
       keyFile: credPath,
       scopes: ['https://www.googleapis.com/auth/drive'],
